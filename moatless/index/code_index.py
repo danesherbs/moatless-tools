@@ -38,7 +38,7 @@ from moatless.utils.tokenizer import count_tokens
 from tenacity import (
     retry,
     stop_after_attempt,
-    wait_random_exponential,
+    wait_exponential,
     before_sleep_log,
 )
 
@@ -653,7 +653,7 @@ class CodeIndex:
         return search_results
 
     @retry(
-        wait=wait_random_exponential(multiplier=1, min=4, max=180),
+        wait=wait_exponential(multiplier=1, min=4, max=180),
         stop=stop_after_attempt(10),
         before_sleep=before_sleep_log(logger, logging.INFO),
     )
@@ -765,6 +765,7 @@ class CodeIndex:
         # )
 
         embedded_nodes = []
+
         for chunk in self.get_chunks(list(prepared_nodes), chunk_size):
             embedded_chunk = self.embed_chunk(embed_pipeline, chunk, num_workers)
             embedded_nodes.extend(embedded_chunk)
