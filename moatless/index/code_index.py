@@ -673,7 +673,7 @@ class CodeIndex:
         repo_path: str | None = None,
         input_files: list[str] | None = None,
         num_workers: int | None = None,
-        chunk_size: int = 10,
+        chunk_size: int = 100,
     ):
         repo_path = repo_path or self._file_repo.path
 
