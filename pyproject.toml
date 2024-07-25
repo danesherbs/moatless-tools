@@ -13,9 +13,10 @@ datasets = "2.19.0"
 
 litellm = "1.40.17"
 instructor = "1.3.3"
-
 tiktoken = "0.7.0"
 networkx = "3.3"
+
+tenacity = "8.5.0"
 
 tree-sitter = "0.22.3"
 tree-sitter-python = [

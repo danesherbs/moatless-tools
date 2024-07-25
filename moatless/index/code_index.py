@@ -5,6 +5,7 @@ import mimetypes
 import os
 import shutil
 import tempfile
+import openai
 
 import requests
 from llama_index.core import SimpleDirectoryReader
@@ -34,6 +35,12 @@ from moatless.index.types import (
 from moatless.repository import FileRepository
 from moatless.types import FileWithSpans
 from moatless.utils.tokenizer import count_tokens
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_random_exponential,
+    before_sleep_log,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -645,11 +652,28 @@ class CodeIndex:
 
         return search_results
 
+    @retry(
+        wait=wait_random_exponential(multiplier=1, min=4, max=180),
+        stop=stop_after_attempt(10),
+        before_sleep=before_sleep_log(logger, logging.INFO),
+    )
+    def embed_chunk(self, embed_pipeline, chunk, num_workers):
+        return embed_pipeline.run(
+            nodes=chunk,
+            show_progress=True,
+            num_workers=num_workers,
+        )
+
+    def get_chunks(self, lst: list, n: int):
+        for i in range(0, len(lst), n):
+            yield lst[i : i + n]
+
     def run_ingestion(
         self,
         repo_path: str | None = None,
         input_files: list[str] | None = None,
         num_workers: int | None = None,
+        chunk_size: int = 10,
     ):
         repo_path = repo_path or self._file_repo.path
 
@@ -736,9 +760,15 @@ class CodeIndex:
             f"Prepared {len(prepared_nodes)} nodes and {prepared_tokens} tokens"
         )
 
-        embedded_nodes = embed_pipeline.run(
-            nodes=list(prepared_nodes), show_progress=True, num_workers=num_workers
-        )
+        # embedded_nodes = embed_pipeline.run(
+        #     nodes=list(prepared_nodes), show_progress=True, num_workers=num_workers
+        # )
+
+        embedded_nodes = []
+        for chunk in self.get_chunks(list(prepared_nodes), chunk_size):
+            embedded_chunk = self.embed_chunk(embed_pipeline, chunk, num_workers)
+            embedded_nodes.extend(embedded_chunk)
+
         embedded_tokens = sum(
             [
                 count_tokens(node.get_content(), self._settings.embed_model)
